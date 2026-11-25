@@ -51,6 +51,142 @@ const BOW_LOOP =
     "M0 0C-.25 -.5 -.8 -.6 -1 -.38C-1.14 -.12 -1.12 .22 -.98 .42C-.8 .62 -.25 .48 0 0Z";
 const BOW_TAIL = "M-.04 .1L-.52 1L-.4 .88L-.24 1.06L0 .16Z";
 
+const ASCII_CHARS = " .:-=+*#%@";
+const ASCII_ROWS = Array.from({ length: 14 }, (_, r) =>
+    Array.from({ length: 32 }, (_, c) => {
+        const x = (c + 0.5) * 3 - 48;
+        const y = (r + 0.5) * 4 - 28;
+        const v = Math.max(0, 1 - Math.hypot(x, y) / 22) ** 0.6;
+        const ch = ASCII_CHARS[Math.floor(v * (ASCII_CHARS.length - 1))];
+        return ch === " " ? "\u00a0" : ch;
+    }).join("")
+);
+
+const AsciiArt = ({ bg, fill }: { bg: string; fill: string }) => (
+    <>
+        <Bg fill={bg} />
+        {ASCII_ROWS.map((row, i) => (
+            <text
+                key={i}
+                x="0"
+                y={i * 4 + 3.4}
+                textLength="96"
+                lengthAdjust="spacingAndGlyphs"
+                fontFamily="monospace"
+                fontSize="4.4"
+                fontWeight="700"
+                fill={fill}
+            >
+                {row}
+            </text>
+        ))}
+    </>
+);
+
+const Gem = ({
+    x,
+    y,
+    r,
+    top,
+    mid,
+    bot,
+}: {
+    x: number;
+    y: number;
+    r: number;
+    top: string;
+    mid: string;
+    bot: string;
+}) => (
+    <g transform={`translate(${x} ${y})`} strokeLinejoin="round">
+        <path
+            d={`M${-0.55 * r} ${-0.7 * r}L${0.55 * r} ${-0.7 * r}L${r} ${-0.1 * r}L0 ${r}L${-r} ${-0.1 * r}Z`}
+            fill={mid}
+        />
+        <path
+            d={`M${-0.55 * r} ${-0.7 * r}L${0.55 * r} ${-0.7 * r}L${r} ${-0.1 * r}L${-r} ${-0.1 * r}Z`}
+            fill={top}
+            opacity=".6"
+        />
+        <path d={`M${-r} ${-0.1 * r}L${r} ${-0.1 * r}L0 ${r}Z`} fill={bot} opacity=".8" />
+        <path
+            d={`M${-0.55 * r} ${-0.7 * r}L${-0.25 * r} ${-0.1 * r}L0 ${r}`}
+            stroke="#fff"
+            strokeOpacity=".6"
+            strokeWidth=".4"
+            fill="none"
+        />
+    </g>
+);
+
+// jaring wajah sederhana untuk card Face Mesh: 3 cincin elips + jari-jari
+const MESH_N = 10;
+const MESH_RINGS = [0.38, 0.7, 1].map((k) =>
+    Array.from({ length: MESH_N }, (_, i) => {
+        const a = (i / MESH_N) * Math.PI * 2;
+        return [48 + Math.cos(a) * k * 17, 28 + Math.sin(a) * k * 22] as const;
+    })
+);
+const pt = (p: readonly [number, number]) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+const MESH_INNER =
+    MESH_RINGS.slice(0, 2)
+        .map((ring) => `M${ring.map(pt).join("L")}Z`)
+        .join("") +
+    MESH_RINGS[0].map((p) => `M48 28L${pt(p)}`).join("") +
+    [0, 1]
+        .map((k) =>
+            MESH_RINGS[k]
+                .map(
+                    (p, i) =>
+                        `M${pt(p)}L${pt(MESH_RINGS[k + 1][i])}M${pt(p)}L${pt(
+                            MESH_RINGS[k + 1][(i + 1) % MESH_N]
+                        )}`
+                )
+                .join("")
+        )
+        .join("");
+const MESH_OUTER = `M${MESH_RINGS[2].map(pt).join("L")}Z`;
+
+const Star5 = ({
+    x,
+    y,
+    r,
+    fill,
+    stroke,
+}: {
+    x: number;
+    y: number;
+    r: number;
+    fill: string;
+    stroke: string;
+}) => (
+    <polygon
+        points={Array.from({ length: 10 }, (_, i) => {
+            const a = -Math.PI / 2 + (i * Math.PI) / 5;
+            const rr = i % 2 ? r * 0.45 : r;
+            return `${(x + Math.cos(a) * rr).toFixed(2)},${(y + Math.sin(a) * rr).toFixed(2)}`;
+        }).join(" ")}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth=".5"
+        strokeLinejoin="round"
+    />
+);
+
+const MiniHeart = ({ x, y, s, fill }: { x: number; y: number; s: number; fill: string }) => (
+    <g transform={`translate(${x} ${y}) scale(${s})`}>
+        <path d={HEART} fill={fill} />
+    </g>
+);
+
+const RAINBOW_COLORS = ["#ff4d6d", "#ffa94d", "#ffe14d", "#5fdc8a", "#4db8ff", "#b58cff"];
+
+const BURST = Array.from({ length: 24 }, (_, i) => {
+    const a = (i / 24) * Math.PI * 2;
+    const r = i % 2 ? 7 : 11;
+    return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`;
+}).join(" ");
+
 const ART: Record<string, ReactNode> = {
     normal: (
         <>
@@ -59,6 +195,8 @@ const ART: Record<string, ReactNode> = {
             <circle cx="48" cy="28" r="4" fill="#ededf0" />
         </>
     ),
+    ascii: <AsciiArt bg="#020b05" fill="#4ade80" />,
+    "ascii-color": <AsciiArt bg="#0b0b10" fill="#ff4d8d" />,
     "head-hearts": (
         <>
             <Bg fill="#1d0b14" />
@@ -103,6 +241,145 @@ const ART: Record<string, ReactNode> = {
             <circle cx="48" cy="28" r="24" fill="#ff4d8d" opacity=".12" />
             <circle cx="48" cy="28" r="16" fill="#ff4d8d" opacity=".28" />
             <circle cx="48" cy="28" r="8" fill="#ff4d8d" opacity=".8" />
+        </>
+    ),
+    "cat-ears": (
+        <>
+            <Bg fill="#1a1a1f" />
+            {/* telinga kiri, kanan = cermin */}
+            <path d="M10 30Q8 16 14 5Q26 12 32 30Z" fill="#ffd9b8" stroke="#f0a878" strokeWidth="1" strokeLinejoin="round" />
+            <path d="M15 28Q14 18 15 12Q23 16 27 28Z" fill="#ff9fbd" />
+            <g transform="translate(96 0) scale(-1 1)">
+                <path d="M10 30Q8 16 14 5Q26 12 32 30Z" fill="#ffd9b8" stroke="#f0a878" strokeWidth="1" strokeLinejoin="round" />
+                <path d="M15 28Q14 18 15 12Q23 16 27 28Z" fill="#ff9fbd" />
+            </g>
+            <ellipse cx="48" cy="38" rx="19" ry="16" fill="#2a2a31" />
+            <circle cx="30" cy="42" r="5" fill="#ff4d8d" opacity=".3" />
+            <circle cx="66" cy="42" r="5" fill="#ff4d8d" opacity=".3" />
+            {/* kumis */}
+            {[
+                [10, 35],
+                [8, 41],
+                [11, 47],
+            ].map(([x, y]) => (
+                <g key={y} stroke="#fff" strokeWidth="1" strokeLinecap="round" fill="none" opacity=".9">
+                    <path d={`M31 41Q${(31 + x) / 2} ${(41 + y) / 2 + 2} ${x} ${y}`} />
+                    <path d={`M65 41Q${(65 + 96 - x) / 2} ${(41 + y) / 2 + 2} ${96 - x} ${y}`} />
+                </g>
+            ))}
+            <path
+                d="M44.5 36Q48 34.5 51.5 36Q51 38.5 48 40.5Q45 38.5 44.5 36Z"
+                fill="#ff7fa8"
+                stroke="#d9568a"
+                strokeWidth=".5"
+                strokeLinejoin="round"
+            />
+            {/* balon meow */}
+            <rect x="33" y="3" width="30" height="12" rx="6" fill="#fff" stroke="#ff4d8d" strokeWidth="1" />
+            <path d="M38 14L36 19L43 14Z" fill="#fff" stroke="#ff4d8d" strokeWidth="1" strokeLinejoin="round" />
+            <path d="M38.5 13.6L42.5 13.6" stroke="#fff" strokeWidth="1.4" />
+            <text x="48" y="12" textAnchor="middle" fontSize="7" fontWeight="800" fontFamily="system-ui, sans-serif" fill="#ff4d8d">
+                MEOW!
+            </text>
+        </>
+    ),
+    "freckles-blush": (
+        <>
+            <defs>
+                <radialGradient id="fx-blush-g">
+                    <stop offset="0" stopColor="#ff4d8d" stopOpacity=".8" />
+                    <stop offset="1" stopColor="#ff4d8d" stopOpacity="0" />
+                </radialGradient>
+            </defs>
+            <Bg fill="#1d0b14" />
+            <ellipse cx="48" cy="29" rx="23" ry="25" fill="#2a1a22" />
+            <ellipse cx="28" cy="35" rx="15" ry="11" fill="url(#fx-blush-g)" />
+            <ellipse cx="68" cy="35" rx="15" ry="11" fill="url(#fx-blush-g)" />
+            <ellipse cx="48" cy="33" rx="5" ry="4" fill="url(#fx-blush-g)" opacity=".7" />
+            {/* garis blush anime */}
+            {[28, 68].map((cx) => (
+                <g key={cx} stroke="#ff3d7f" strokeWidth="1.1" strokeLinecap="round">
+                    <line x1={cx - 5} y1="38" x2={cx - 3} y2="34" />
+                    <line x1={cx - 1} y1="38" x2={cx + 1} y2="34" />
+                    <line x1={cx + 3} y1="38" x2={cx + 5} y2="34" />
+                </g>
+            ))}
+            {/* bintik */}
+            {[
+                [43, 30, 0.9],
+                [38, 33, 1.1],
+                [33, 29, 0.8],
+                [29, 33, 1],
+                [40, 37, 0.7],
+                [53, 30, 0.9],
+                [58, 33, 1.1],
+                [63, 29, 0.8],
+                [67, 33, 1],
+                [56, 37, 0.7],
+                [48, 28, 0.8],
+            ].map(([x, y, r]) => (
+                <circle key={`${x}-${y}`} cx={x} cy={y} r={r} fill="#c26a4a" opacity=".85" />
+            ))}
+            <MiniHeart x={20} y={14} s={0.4} fill="#ff6fa5" />
+            <MiniHeart x={14} y={26} s={0.28} fill="#ff2e7e" />
+            <MiniHeart x={76} y={14} s={0.4} fill="#ff4d8d" />
+            <MiniHeart x={83} y={27} s={0.28} fill="#ff6fa5" />
+            <Star x={48} y={14} r={3} fill="#fff3a6" />
+        </>
+    ),
+    "face-paint": (
+        <>
+            <Bg fill="#15151a" />
+            <ellipse cx="48" cy="30" rx="20" ry="24" fill="#2a2a31" />
+            <circle cx="41" cy="26" r="1.4" fill="#ededf0" />
+            <circle cx="55" cy="26" r="1.4" fill="#ededf0" />
+            {/* pelangi + awan */}
+            {RAINBOW_COLORS.map((c, i) => {
+                const r = 11 - i * 1.7;
+                return (
+                    <path
+                        key={c}
+                        d={`M${27 - r} 42A${r} ${r} 0 0 1 ${27 + r} 42`}
+                        stroke={c}
+                        strokeWidth="1.8"
+                        fill="none"
+                    />
+                );
+            })}
+            <circle cx="16" cy="43" r="2.6" fill="#fff" />
+            <circle cx="14.5" cy="45" r="2" fill="#fff" />
+            <circle cx="38" cy="43" r="2.6" fill="#fff" />
+            <circle cx="39.5" cy="45" r="2" fill="#fff" />
+            {/* kupu-kupu */}
+            <g transform="translate(70 38)">
+                <ellipse cx="5" cy="-4" rx="6" ry="4.5" transform="rotate(-30 5 -4)" fill="#b58cff" stroke="#7a4fd1" strokeWidth=".5" />
+                <ellipse cx="-5" cy="-4" rx="6" ry="4.5" transform="rotate(30 -5 -4)" fill="#b58cff" stroke="#7a4fd1" strokeWidth=".5" />
+                <ellipse cx="4" cy="4" rx="4" ry="3" transform="rotate(30 4 4)" fill="#ff8fc4" stroke="#d63a82" strokeWidth=".5" />
+                <ellipse cx="-4" cy="4" rx="4" ry="3" transform="rotate(-30 -4 4)" fill="#ff8fc4" stroke="#d63a82" strokeWidth=".5" />
+                <circle cx="6" cy="-5" r="1.2" fill="#fff" />
+                <circle cx="-6" cy="-5" r="1.2" fill="#fff" />
+                <ellipse rx=".9" ry="6" fill="#4a2d6b" />
+            </g>
+            {/* bintang bawah mata + jejak titik */}
+            <Star5 x={39} y={33} r={3.4} fill="#ffe14d" stroke="#ff9a2e" />
+            <Star5 x={57} y={33} r={3.4} fill="#ffe14d" stroke="#ff9a2e" />
+            <circle cx="34" cy="30" r="1.1" fill="#ff4d8d" />
+            <circle cx="31.5" cy="33" r=".9" fill="#22d3ee" />
+            <circle cx="62" cy="30" r="1.1" fill="#22d3ee" />
+            <circle cx="64.5" cy="33" r=".9" fill="#ffe14d" />
+            {/* dahi + hidung */}
+            <circle cx="38" cy="12" r=".9" fill="#22d3ee" />
+            <circle cx="42" cy="12" r="1.2" fill="#ff4d8d" />
+            <circle cx="54" cy="12" r="1.2" fill="#ffe14d" />
+            <circle cx="58" cy="12" r=".9" fill="#b58cff" />
+            <MiniHeart x={48} y={8.5} s={0.3} fill="#ff4d8d" />
+            <circle cx="48" cy="34" r="2" fill="#ff5c8a" />
+            <circle cx="47.3" cy="33.3" r=".6" fill="#fff" />
+            {/* glitter */}
+            <Star x={14} y={14} r={3} fill="#ffffff" />
+            <Star x={82} y={16} r={3.5} fill="#fff3a6" />
+            <Star x={84} y={46} r={2.5} fill="#c9ecff" />
+            <Star x={10} y={30} r={2} fill="#ffc9de" />
         </>
     ),
     y2k: (
@@ -255,70 +532,205 @@ const ART: Record<string, ReactNode> = {
             />
         </>
     ),
-    "rain-glass": (
+    "face-gems": (
+        <>
+            <Bg fill="#1d0b14" />
+            <ellipse cx="48" cy="29" rx="17" ry="22" fill="none" stroke="#3b3b44" strokeWidth="1.5" />
+            {/* permata dahi */}
+            <Gem x={48} y={12} r={6} top="#ffe3f1" mid="#ff7fb5" bot="#d63a82" />
+            <Gem x={40} y={14} r={3} top="#e6fbff" mid="#5fdcf5" bot="#1e9bc0" />
+            <Gem x={56} y={14} r={3} top="#e6fbff" mid="#5fdcf5" bot="#1e9bc0" />
+            {/* jejak permata di mata */}
+            <Gem x={33} y={28} r={2.2} top="#efe3ff" mid="#b794ff" bot="#7a4fd1" />
+            <Gem x={31} y={33} r={1.8} top="#fff7cf" mid="#ffd34d" bot="#d99a12" />
+            <Gem x={63} y={28} r={2.2} top="#efe3ff" mid="#b794ff" bot="#7a4fd1" />
+            <Gem x={65} y={33} r={1.8} top="#fff7cf" mid="#ffd34d" bot="#d99a12" />
+            {/* bintang pipi */}
+            <Star x={29} y={39} r={6} fill="#ffc9de" />
+            <Star x={67} y={39} r={6} fill="#ffc9de" />
+            <Star x={22} y={33} r={2.6} fill="#fff3a6" />
+            <Star x={74} y={46} r={2.4} fill="#c9ecff" />
+            <Star x={84} y={14} r={3} fill="#ffffff" />
+            <Star x={12} y={12} r={2.4} fill="#fff3a6" />
+        </>
+    ),
+    "face-mesh": (
+        <>
+            <Bg fill="#06001a" />
+            <path d={MESH_INNER} stroke="#22d3ee" strokeOpacity=".18" strokeWidth="2.2" fill="none" />
+            <path d={MESH_INNER} stroke="#22d3ee" strokeOpacity=".9" strokeWidth=".45" fill="none" />
+            <path d={MESH_OUTER} stroke="#ff4d8d" strokeOpacity=".3" strokeWidth="3" fill="none" />
+            <path d={MESH_OUTER} stroke="#ff9ec4" strokeWidth=".9" fill="none" />
+            {[41, 55].map((x) => (
+                <g key={x}>
+                    <ellipse cx={x} cy="24" rx="4.2" ry="2.2" stroke="#ff4d8d" strokeOpacity=".35" strokeWidth="2.4" fill="none" />
+                    <ellipse cx={x} cy="24" rx="4.2" ry="2.2" stroke="#ffd1e3" strokeWidth=".8" fill="none" />
+                </g>
+            ))}
+            <ellipse cx="48" cy="40" rx="5.5" ry="2" stroke="#ff4d8d" strokeOpacity=".35" strokeWidth="2.4" fill="none" />
+            <ellipse cx="48" cy="40" rx="5.5" ry="2" stroke="#ffd1e3" strokeWidth=".8" fill="none" />
+        </>
+    ),
+    "scar-damage": (
+        <>
+            <Bg fill="#1a1a1f" />
+            <ellipse cx="48" cy="32" rx="19" ry="23" fill="#3a2a30" />
+            {/* mata lebam */}
+            <ellipse cx="57" cy="30" rx="8.5" ry="6" fill="#c8c040" opacity=".25" />
+            <ellipse cx="57" cy="30" rx="6.5" ry="4.5" fill="#7a3fb0" opacity=".8" />
+            <circle cx="41" cy="28" r="1.5" fill="#ededf0" />
+            <circle cx="55" cy="28" r="1.5" fill="#ededf0" />
+            {/* alis + luka berjahit */}
+            <path d="M36 24Q41 22 46 24" stroke="#6b4a55" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+            <line x1="39" y1="27" x2="44" y2="19" stroke="#9a2f45" strokeWidth="1.8" strokeLinecap="round" />
+            <line x1="39" y1="27" x2="44" y2="19" stroke="#f0788a" strokeWidth=".7" strokeLinecap="round" />
+            {[0.25, 0.5, 0.75].map((s) => (
+                <line
+                    key={s}
+                    x1={39 + 5 * s - 1.2}
+                    y1={27 - 8 * s - 0.8}
+                    x2={39 + 5 * s + 1.2}
+                    y2={27 - 8 * s + 0.8}
+                    stroke="#3a1020"
+                    strokeWidth=".6"
+                />
+            ))}
+            {/* plester X di hidung */}
+            <g transform="translate(48 36)">
+                {[35, -35].map((deg) => (
+                    <rect
+                        key={deg}
+                        x="-6"
+                        y="-1.6"
+                        width="12"
+                        height="3.2"
+                        rx="1.4"
+                        transform={`rotate(${deg})`}
+                        fill="#f6d2a8"
+                        stroke="#d9a577"
+                        strokeWidth=".4"
+                    />
+                ))}
+            </g>
+            {/* balon OUCH */}
+            <g transform="translate(20 17) rotate(-12)">
+                <polygon points={BURST} fill="#ffe14d" stroke="#ff4d8d" strokeWidth="1" strokeLinejoin="round" />
+                <text x="0" y="1.6" textAnchor="middle" fontSize="4.6" fontWeight="900" fontFamily="system-ui, sans-serif" fill="#1a1a1f">
+                    OUCH!
+                </text>
+            </g>
+            {/* bintang pusing + hati HP */}
+            <Star5 x={36} y={8} r={2.6} fill="#ffe14d" stroke="#ff9a2e" />
+            <Star5 x={48} y={5} r={2.6} fill="#ffe14d" stroke="#ff9a2e" />
+            <Star5 x={60} y={8} r={2.6} fill="#ffe14d" stroke="#ff9a2e" />
+            <MiniHeart x={74} y={9} s={0.35} fill="#ff4d8d" />
+            <MiniHeart x={82} y={9} s={0.35} fill="#ff4d8d" />
+            <g transform="translate(90 9) scale(.35)">
+                <path d={HEART} fill="none" stroke="#ff4d8d" strokeWidth="2.5" />
+            </g>
+        </>
+    ),
+    "iron-hud": (
+        <>
+            <Bg fill="#04121f" />
+            <ellipse cx="48" cy="29" rx="15" ry="19" fill="#0e2a3d" />
+            {/* kotak target */}
+            {([-1, 1] as const).flatMap((sx) =>
+                ([-1, 1] as const).map((sy) => {
+                    const x = 48 + sx * 22;
+                    const y = 29 + sy * 24;
+                    return (
+                        <path
+                            key={`${sx}${sy}`}
+                            d={`M${x - sx * 6} ${y}L${x} ${y}L${x} ${y - sy * 6}`}
+                            stroke="#22d3ee"
+                            strokeWidth="1"
+                            strokeLinecap="round"
+                            fill="none"
+                        />
+                    );
+                })
+            )}
+            <circle cx="48" cy="29" r="21" stroke="#22d3ee" strokeWidth=".6" strokeDasharray="3 2" opacity=".6" fill="none" />
+            <path d="M48 7.5A21.5 21.5 0 0 1 66 18" stroke="#ff4d8d" strokeWidth="1" strokeLinecap="round" fill="none" />
+            {[41, 55].map((x) => (
+                <g key={x}>
+                    <circle cx={x} cy="25" r="3.2" stroke="#22d3ee" strokeWidth=".7" strokeDasharray="1.6 1" fill="none" />
+                    <circle cx={x} cy="25" r=".8" fill="#7df3ff" />
+                </g>
+            ))}
+            <line x1="30" y1="33" x2="66" y2="33" stroke="#7df3ff" strokeWidth=".8" opacity=".85" />
+            {/* chip kanan */}
+            {[
+                [11, "SMILE 87%"],
+                [21, "VIBES: MAX"],
+                [31, "BATT: 69%"],
+            ].map(([y, text]) => (
+                <g key={text}>
+                    <rect x="72" y={y} width="22" height="6" rx="2" fill="#04121f" stroke="#22d3ee" strokeWidth=".6" />
+                    <text x="83" y={Number(y) + 4.1} textAnchor="middle" fontSize="3.2" fontWeight="700" fontFamily="monospace" fill="#7df3ff">
+                        {text}
+                    </text>
+                </g>
+            ))}
+            {/* EKG kiri */}
+            <rect x="2" y="18" width="22" height="11" rx="2" fill="#04121f" stroke="#22d3ee" strokeWidth=".6" />
+            <text x="4" y="22.4" fontSize="3" fontWeight="700" fontFamily="monospace" fill="#ff6fa5">
+                ♥ 98 BPM
+            </text>
+            <polyline
+                points="4,26 8,26 10,26 11.5,21.5 13,28.5 14.5,26 19,26 20.5,24 22,26"
+                stroke="#7df3ff"
+                strokeWidth=".7"
+                strokeLinejoin="round"
+                fill="none"
+            />
+            {/* status */}
+            <rect x="32" y="48.5" width="32" height="5" rx="1.8" fill="#04121f" stroke="#22d3ee" strokeWidth=".6" />
+            <text x="48" y="52.2" textAnchor="middle" fontSize="3.2" fontWeight="700" fontFamily="monospace" fill="#22d3ee">
+                TARGET LOCKED
+            </text>
+        </>
+    ),
+    "terminator-eye": (
         <>
             <defs>
-                <linearGradient id="fx-rain-bg" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stopColor="#2b4a6b" />
-                    <stop offset="1" stopColor="#12202f" />
-                </linearGradient>
+                <radialGradient id="fx-term-g">
+                    <stop offset="0" stopColor="#ffffff" />
+                    <stop offset=".15" stopColor="#ff5a3c" />
+                    <stop offset=".5" stopColor="#ff1414" stopOpacity=".45" />
+                    <stop offset="1" stopColor="#ff0000" stopOpacity="0" />
+                </radialGradient>
             </defs>
-            <rect width="96" height="56" fill="url(#fx-rain-bg)" />
-            <circle cx="24" cy="18" r="14" fill="#ff9a2e" opacity=".25" />
-            <circle cx="70" cy="14" r="12" fill="#22d3ee" opacity=".25" />
-            <circle cx="56" cy="40" r="16" fill="#ff4d8d" opacity=".2" />
-            <line
-                x1="44"
-                y1="6"
-                x2="44"
-                y2="28"
-                stroke="#fff"
-                strokeOpacity=".12"
-                strokeWidth="4"
-                strokeLinecap="round"
-            />
-            <line
-                x1="78"
-                y1="20"
-                x2="78"
-                y2="38"
-                stroke="#fff"
-                strokeOpacity=".12"
-                strokeWidth="3"
-                strokeLinecap="round"
-            />
-            {(
-                [
-                    [20, 22, 5],
-                    [44, 32, 7],
-                    [70, 18, 4],
-                    [78, 40, 6],
-                    [30, 46, 3],
-                    [58, 11, 3],
-                    [10, 40, 3.5],
-                ] as const
-            ).map(([x, y, r]) => (
-                <g key={`${x}-${y}`}>
-                    <ellipse
-                        cx={x}
-                        cy={y}
-                        rx={r}
-                        ry={r * 1.25}
-                        fill="#fff"
-                        fillOpacity=".12"
-                        stroke="#fff"
-                        strokeOpacity=".5"
-                        strokeWidth=".7"
-                    />
-                    <ellipse
-                        cx={x - r * 0.35}
-                        cy={y - r * 0.5}
-                        rx={r * 0.25}
-                        ry={r * 0.17}
-                        fill="#fff"
-                        opacity=".85"
-                    />
-                </g>
+            <Bg fill="#2a0707" />
+            <ellipse cx="60" cy="30" rx="19" ry="25" fill="#4a0f0f" />
+            <circle cx="68" cy="25" r="1.3" fill="#7a1a1a" />
+            {/* mata menyala + reticle */}
+            <circle cx="54" cy="25" r="15" fill="url(#fx-term-g)" />
+            <circle cx="54" cy="25" r="1.6" fill="#ffffff" />
+            <circle cx="54" cy="25" r="7" stroke="#ff6b6b" strokeWidth=".7" strokeDasharray="2.4 1.4" fill="none" />
+            <circle cx="54" cy="25" r="10" stroke="#ff6b6b" strokeWidth=".5" strokeDasharray="6 12" fill="none" />
+            <g stroke="#ff6b6b" strokeWidth=".6" strokeLinecap="round">
+                <line x1="38" y1="25" x2="48" y2="25" />
+                <line x1="60" y1="25" x2="76" y2="25" />
+                <line x1="54" y1="8" x2="54" y2="16" />
+                <line x1="54" y1="34" x2="54" y2="42" />
+            </g>
+            {/* teks scan */}
+            {["SCAN: HUMAN", "MOOD: SUS", "COFFEE: 0%", "HAIR: TOO GOOD", "VERDICT: NICE"].map((s, i) => (
+                <text key={s} x="3" y={17 + i * 5} fontSize="3.2" fontWeight="700" fontFamily="monospace" fill="#ffb3a8">
+                    {s}
+                </text>
+            ))}
+            <line x1="33" y1="27" x2="47" y2="25" stroke="#ff6b6b" strokeWidth=".5" opacity=".8" />
+            {/* chip bawah */}
+            <rect x="30" y="46" width="36" height="6" rx="2" fill="#2a0707" stroke="#ff6b6b" strokeWidth=".6" />
+            <text x="48" y="50.3" textAnchor="middle" fontSize="3.4" fontWeight="700" fontFamily="monospace" fill="#ff8a80">
+                {"I'LL BE BACK"}
+            </text>
+            {/* scanline */}
+            {Array.from({ length: 14 }).map((_, i) => (
+                <rect key={i} x="0" y={i * 4} width="96" height=".8" fill="#000" opacity=".25" />
             ))}
         </>
     ),

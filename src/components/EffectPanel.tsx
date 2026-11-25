@@ -26,12 +26,13 @@ const useIsDesktop = () =>
     );
 
 type Props = {
+    title: string;
     effects: Effect[];
     activeId: string;
     onPick: (e: Effect) => void;
 };
 
-export default function EffectPanel({ effects, activeId, onPick }: Props) {
+export default function EffectPanel({ title, effects, activeId, onPick }: Props) {
     const rootRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ w: 0, h: 0 });
     const [page, setPage] = useState(0);
@@ -66,12 +67,11 @@ export default function EffectPanel({ effects, activeId, onPick }: Props) {
     return (
         <div ref={rootRef} className="flex h-full min-h-0 flex-col">
             <div
-                className={`mb-2 shrink-0 items-center justify-between ${isDesktop || paging ? "flex" : "hidden"
-                    }`}
+                className="mb-2 flex shrink-0 items-center justify-between"
                 style={{ height: HEADER_H }}
             >
                 <span className="font-mono text-[11px] font-bold uppercase tracking-widest text-muted">
-                    Efek
+                    {title}
                 </span>
 
                 {paging && (

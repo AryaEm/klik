@@ -22,7 +22,7 @@ import EffectPanel from "@/components/EffectPanel";
 import { useCamera } from "@/hooks/useCamera";
 import { useRenderLoop } from "@/hooks/useRenderLoop";
 import { captureSingle, composeStrip, type StripLayout } from "@/lib/capture";
-import { effects, type Effect } from "@/lib/effects";
+import { effects, faceEffects, screenEffects, type Effect } from "@/lib/effects";
 
 const COUNTDOWN_SECONDS = 3;
 const NEXT_SHOT_SECONDS = 3;
@@ -226,9 +226,13 @@ export default function Camera() {
 
             {/* ===== kiri: card efek (paging otomatis kalau tidak muat) ===== */}
             <aside className="order-2 shrink-0 lg:order-1 lg:h-full lg:min-h-0 lg:w-60 xl:w-64">
-                <EffectPanel effects={effects} activeId={effectId} onPick={pickEffect} />
+                <EffectPanel
+                    title="filter"
+                    effects={faceEffects}
+                    activeId={effectId}
+                    onPick={(e) => pickEffect(e.id === effectId ? screenEffects[0] : e)}
+                />
             </aside>
-
             {/* ===== tengah: kamera + kontrol ===== */}
             <section className="order-1 flex min-h-0 min-w-0 flex-1 flex-col gap-3 sm:gap-4 lg:order-2">
                 <div
@@ -449,8 +453,14 @@ export default function Camera() {
             </section>
 
             {/* ===== kanan: sengaja dikosongkan untuk fitur berikutnya ===== */}
-            <div aria-hidden className="order-3 hidden lg:block lg:w-60 lg:shrink-0 xl:w-64" />
-
+            <aside className="order-3 shrink-0 lg:h-full lg:min-h-0 lg:w-60 xl:w-64">
+                <EffectPanel
+                    title="effect"
+                    effects={screenEffects}
+                    activeId={effectId}
+                    onPick={pickEffect}
+                />
+            </aside>
             {/* ===== hasil: polaroid yang jatuh ===== */}
             {photo && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4">
