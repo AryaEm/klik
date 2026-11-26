@@ -119,7 +119,6 @@ const Gem = ({
     </g>
 );
 
-// jaring wajah sederhana untuk card Face Mesh: 3 cincin elips + jari-jari
 const MESH_N = 10;
 const MESH_RINGS = [0.38, 0.7, 1].map((k) =>
     Array.from({ length: MESH_N }, (_, i) => {
@@ -246,7 +245,6 @@ const ART: Record<string, ReactNode> = {
     "cat-ears": (
         <>
             <Bg fill="#1a1a1f" />
-            {/* telinga kiri, kanan = cermin */}
             <path d="M10 30Q8 16 14 5Q26 12 32 30Z" fill="#ffd9b8" stroke="#f0a878" strokeWidth="1" strokeLinejoin="round" />
             <path d="M15 28Q14 18 15 12Q23 16 27 28Z" fill="#ff9fbd" />
             <g transform="translate(96 0) scale(-1 1)">
@@ -256,7 +254,6 @@ const ART: Record<string, ReactNode> = {
             <ellipse cx="48" cy="38" rx="19" ry="16" fill="#2a2a31" />
             <circle cx="30" cy="42" r="5" fill="#ff4d8d" opacity=".3" />
             <circle cx="66" cy="42" r="5" fill="#ff4d8d" opacity=".3" />
-            {/* kumis */}
             {[
                 [10, 35],
                 [8, 41],
@@ -274,7 +271,6 @@ const ART: Record<string, ReactNode> = {
                 strokeWidth=".5"
                 strokeLinejoin="round"
             />
-            {/* balon meow */}
             <rect x="33" y="3" width="30" height="12" rx="6" fill="#fff" stroke="#ff4d8d" strokeWidth="1" />
             <path d="M38 14L36 19L43 14Z" fill="#fff" stroke="#ff4d8d" strokeWidth="1" strokeLinejoin="round" />
             <path d="M38.5 13.6L42.5 13.6" stroke="#fff" strokeWidth="1.4" />
@@ -296,7 +292,6 @@ const ART: Record<string, ReactNode> = {
             <ellipse cx="28" cy="35" rx="15" ry="11" fill="url(#fx-blush-g)" />
             <ellipse cx="68" cy="35" rx="15" ry="11" fill="url(#fx-blush-g)" />
             <ellipse cx="48" cy="33" rx="5" ry="4" fill="url(#fx-blush-g)" opacity=".7" />
-            {/* garis blush anime */}
             {[28, 68].map((cx) => (
                 <g key={cx} stroke="#ff3d7f" strokeWidth="1.1" strokeLinecap="round">
                     <line x1={cx - 5} y1="38" x2={cx - 3} y2="34" />
@@ -304,7 +299,6 @@ const ART: Record<string, ReactNode> = {
                     <line x1={cx + 3} y1="38" x2={cx + 5} y2="34" />
                 </g>
             ))}
-            {/* bintik */}
             {[
                 [43, 30, 0.9],
                 [38, 33, 1.1],
@@ -333,7 +327,6 @@ const ART: Record<string, ReactNode> = {
             <ellipse cx="48" cy="30" rx="20" ry="24" fill="#2a2a31" />
             <circle cx="41" cy="26" r="1.4" fill="#ededf0" />
             <circle cx="55" cy="26" r="1.4" fill="#ededf0" />
-            {/* pelangi + awan */}
             {RAINBOW_COLORS.map((c, i) => {
                 const r = 11 - i * 1.7;
                 return (
@@ -350,7 +343,6 @@ const ART: Record<string, ReactNode> = {
             <circle cx="14.5" cy="45" r="2" fill="#fff" />
             <circle cx="38" cy="43" r="2.6" fill="#fff" />
             <circle cx="39.5" cy="45" r="2" fill="#fff" />
-            {/* kupu-kupu */}
             <g transform="translate(70 38)">
                 <ellipse cx="5" cy="-4" rx="6" ry="4.5" transform="rotate(-30 5 -4)" fill="#b58cff" stroke="#7a4fd1" strokeWidth=".5" />
                 <ellipse cx="-5" cy="-4" rx="6" ry="4.5" transform="rotate(30 -5 -4)" fill="#b58cff" stroke="#7a4fd1" strokeWidth=".5" />
@@ -360,14 +352,12 @@ const ART: Record<string, ReactNode> = {
                 <circle cx="-6" cy="-5" r="1.2" fill="#fff" />
                 <ellipse rx=".9" ry="6" fill="#4a2d6b" />
             </g>
-            {/* bintang bawah mata + jejak titik */}
             <Star5 x={39} y={33} r={3.4} fill="#ffe14d" stroke="#ff9a2e" />
             <Star5 x={57} y={33} r={3.4} fill="#ffe14d" stroke="#ff9a2e" />
             <circle cx="34" cy="30" r="1.1" fill="#ff4d8d" />
             <circle cx="31.5" cy="33" r=".9" fill="#22d3ee" />
             <circle cx="62" cy="30" r="1.1" fill="#22d3ee" />
             <circle cx="64.5" cy="33" r=".9" fill="#ffe14d" />
-            {/* dahi + hidung */}
             <circle cx="38" cy="12" r=".9" fill="#22d3ee" />
             <circle cx="42" cy="12" r="1.2" fill="#ff4d8d" />
             <circle cx="54" cy="12" r="1.2" fill="#ffe14d" />
@@ -375,7 +365,6 @@ const ART: Record<string, ReactNode> = {
             <MiniHeart x={48} y={8.5} s={0.3} fill="#ff4d8d" />
             <circle cx="48" cy="34" r="2" fill="#ff5c8a" />
             <circle cx="47.3" cy="33.3" r=".6" fill="#fff" />
-            {/* glitter */}
             <Star x={14} y={14} r={3} fill="#ffffff" />
             <Star x={82} y={16} r={3.5} fill="#fff3a6" />
             <Star x={84} y={46} r={2.5} fill="#c9ecff" />
@@ -705,7 +694,6 @@ const ART: Record<string, ReactNode> = {
             <Bg fill="#2a0707" />
             <ellipse cx="60" cy="30" rx="19" ry="25" fill="#4a0f0f" />
             <circle cx="68" cy="25" r="1.3" fill="#7a1a1a" />
-            {/* mata menyala + reticle */}
             <circle cx="54" cy="25" r="15" fill="url(#fx-term-g)" />
             <circle cx="54" cy="25" r="1.6" fill="#ffffff" />
             <circle cx="54" cy="25" r="7" stroke="#ff6b6b" strokeWidth=".7" strokeDasharray="2.4 1.4" fill="none" />
@@ -716,7 +704,6 @@ const ART: Record<string, ReactNode> = {
                 <line x1="54" y1="8" x2="54" y2="16" />
                 <line x1="54" y1="34" x2="54" y2="42" />
             </g>
-            {/* teks scan */}
             {["SCAN: HUMAN", "MOOD: SUS", "COFFEE: 0%", "HAIR: TOO GOOD", "VERDICT: NICE"].map((s, i) => (
                 <text key={s} x="3" y={17 + i * 5} fontSize="3.2" fontWeight="700" fontFamily="monospace" fill="#ffb3a8">
                     {s}

@@ -22,7 +22,7 @@ import EffectPanel from "@/components/EffectPanel";
 import { useCamera } from "@/hooks/useCamera";
 import { useRenderLoop } from "@/hooks/useRenderLoop";
 import { captureSingle, composeStrip, type StripLayout } from "@/lib/capture";
-import { effects, faceEffects, screenEffects, type Effect } from "@/lib/effects";
+import { combineEffects, faceEffects, screenEffects, type Effect } from "@/lib/effects";
 
 const COUNTDOWN_SECONDS = 3;
 const NEXT_SHOT_SECONDS = 3;
@@ -74,7 +74,6 @@ function Notice({
     );
 }
 
-// bentuk flat yang melayang di layar awal
 function PlayShapes() {
     return (
         <div aria-hidden className="pointer-events-none absolute inset-0">
@@ -92,13 +91,12 @@ export default function Camera() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const abortRef = useRef<AbortController | undefined>(undefined);
 
-    // dibaca loop/proses jepret, jadi disimpan di ref
-    const effectRef = useRef<Effect>(effects[0]);
+    const effectRef = useRef<Effect>(screenEffects[0]);
     const mirrorRef = useRef(true);
     const flashRef = useRef(true);
 
-    // dibaca UI
-    const [effectId, setEffectId] = useState(effects[0].id);
+    const [screenId, setScreenId] = useState(screenEffects[0].id);
+    const [faceId, setFaceId] = useState<string | null>(null);
     const [mirror, setMirror] = useState(true);
     const [flashOn, setFlashOn] = useState(true);
     const [mode, setMode] = useState<Mode>("single");
@@ -117,16 +115,24 @@ export default function Camera() {
         enabled: status === "ready",
     });
 
-    // bersihin proses yang jalan & object URL
     useEffect(() => () => abortRef.current?.abort(), []);
     useEffect(() => {
         if (!photo) return;
         return () => URL.revokeObjectURL(photo.url);
     }, [photo]);
 
-    const pickEffect = (e: Effect) => {
-        effectRef.current = e;
-        setEffectId(e.id);
+    const screen = screenEffects.find((e) => e.id === screenId) ?? screenEffects[0];
+    const face = faceEffects.find((e) => e.id === faceId) ?? null;
+
+    const pickScreen = (e: Effect) => {
+        effectRef.current = combineEffects(e, face);
+        setScreenId(e.id);
+    };
+
+    const pickFace = (e: Effect) => {
+        const next = e.id === faceId ? null : e;
+        effectRef.current = combineEffects(screen, next);
+        setFaceId(next?.id ?? null);
     };
 
     const toggleMirror = () => {
@@ -212,7 +218,11 @@ export default function Camera() {
 
     const cancel = () => abortRef.current?.abort();
 
-    const current = effects.find((e) => e.id === effectId);
+    const label = face
+        ? screen.id === "normal"
+            ? face.name
+            : `${face.name} + ${screen.name}`
+        : screen.name;
     const countStyle = count !== null ? (COUNT_STYLE[count] ?? COUNT_STYLE[3]) : null;
 
     return (
@@ -224,16 +234,15 @@ export default function Camera() {
                 className="pointer-events-none absolute size-px opacity-0"
             />
 
-            {/* ===== kiri: card efek (paging otomatis kalau tidak muat) ===== */}
             <aside className="order-2 shrink-0 lg:order-1 lg:h-full lg:min-h-0 lg:w-60 xl:w-64">
                 <EffectPanel
                     title="filter"
                     effects={faceEffects}
-                    activeId={effectId}
-                    onPick={(e) => pickEffect(e.id === effectId ? screenEffects[0] : e)}
+                    activeId={faceId ?? ""}
+                    onPick={pickFace}
                 />
             </aside>
-            {/* ===== tengah: kamera + kontrol ===== */}
+
             <section className="order-1 flex min-h-0 min-w-0 flex-1 flex-col gap-3 sm:gap-4 lg:order-2">
                 <div
                     data-counting={count !== null}
@@ -244,7 +253,6 @@ export default function Camera() {
                     {status === "ready" &&
                         CORNERS.map((c) => <div key={c} className={`corner corner-${c}`} />)}
 
-                    {/* stiker status di tengah atas: LIVE atau nomor pose */}
                     {status === "ready" &&
                         (shotNo > 0 ? (
                             <span
@@ -261,13 +269,12 @@ export default function Camera() {
                             </span>
                         ))}
 
-                    {/* stiker nama efek di tengah bawah */}
-                    {status === "ready" && current && (
+                    {status === "ready" && (
                         <span
-                            key={effectId}
+                            key={label}
                             className="sticker sticker-cyan anim-pop absolute bottom-3 left-1/2 -translate-x-1/2 rotate-1 sm:bottom-4"
                         >
-                            {current.name}
+                            {label}
                         </span>
                     )}
 
@@ -312,8 +319,6 @@ export default function Camera() {
                         </div>
                     )}
 
-                    {/* countdown: lingkaran warna membal + cincin yang mengecil */}
-                    {/* countdown: di pojok kanan atas supaya wajah tetap kelihatan */}
                     {count !== null && countStyle && (
                         <div
                             aria-live="assertive"
@@ -349,6 +354,7 @@ export default function Camera() {
                             </div>
                         </div>
                     )}
+
                     <div
                         aria-hidden
                         className={`pointer-events-none absolute inset-0 bg-white ${flashing ? "opacity-100" : "opacity-0 transition-opacity duration-500"
@@ -356,7 +362,6 @@ export default function Camera() {
                     />
                 </div>
 
-                {/* kolom tengah (jepret) selalu di tengah; kiri & kanan berbagi sisa ruang sama rata */}
                 <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 pb-1.5">
                     <div className="flex items-center gap-1.5 justify-self-start sm:gap-2">
                         <div className="segmented">
@@ -405,7 +410,6 @@ export default function Camera() {
                         )}
                     </div>
 
-                    {/* satu tombol, ukuran tetap: jepret <-> batal */}
                     <button
                         type="button"
                         onClick={busy ? cancel : run}
@@ -452,16 +456,15 @@ export default function Camera() {
                 </div>
             </section>
 
-            {/* ===== kanan: sengaja dikosongkan untuk fitur berikutnya ===== */}
             <aside className="order-3 shrink-0 lg:h-full lg:min-h-0 lg:w-60 xl:w-64">
                 <EffectPanel
                     title="effect"
                     effects={screenEffects}
-                    activeId={effectId}
-                    onPick={pickEffect}
+                    activeId={screenId}
+                    onPick={pickScreen}
                 />
             </aside>
-            {/* ===== hasil: polaroid yang jatuh ===== */}
+
             {photo && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4">
                     <div className="relative flex max-h-[94dvh] w-full max-w-md flex-col items-center gap-6 rounded-3xl border-2 border-line-strong bg-surface-1 p-4 pt-9 sm:p-6 sm:pt-10">

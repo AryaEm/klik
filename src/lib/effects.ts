@@ -3,17 +3,16 @@ import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 export type Effect = {
     id: string;
     name: string;
-    preload?: () => void; // dipanggil saat card efek di-hover/fokus
+    preload?: () => void;
     draw: (
         ctx: CanvasRenderingContext2D,
         video: HTMLVideoElement,
         w: number,
         h: number,
-        t: number
+        t: number,
+        overlayOnly?: boolean // true = jangan gambar video, cuma dekorasi (dipakai saat digabung)
     ) => void;
 };
-
-// ---------- efek CSS filter ----------
 
 const filterEffect = (id: string, name: string, filter: string): Effect => ({
     id,
@@ -24,8 +23,6 @@ const filterEffect = (id: string, name: string, filter: string): Effect => ({
         ctx.filter = "none";
     },
 });
-
-// ---------- efek pixel (ImageData) ----------
 
 type PixelFn = (data: Uint8ClampedArray, w: number, h: number, t: number) => void;
 type Overlay = (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void;
@@ -163,11 +160,12 @@ const glitch: PixelFn = (() => {
     };
 })();
 
+
 // ---------- efek MediaPipe Face Landmarker (dipakai Heart Eyes & Bunny) ----------
 
 type FacePoint = { x: number; y: number; z?: number };
 
-const MEDIAPIPE_WASM_PATH = "/mediapipe/wasm"; // disalin dari node_modules (lihat langkah 3)
+const MEDIAPIPE_WASM_PATH = "/mediapipe/wasm";
 const FACE_MODEL_URL =
     "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task";
 const RETRY_AFTER_MS = 5000;
@@ -182,7 +180,6 @@ const DETECT_INTERVAL_MS = 50;
 
 let consolePatched = false;
 
-// MediaPipe nulis log INFO lewat console.error, bikin overlay dev Next.js muncul
 function silenceMediaPipeInfo() {
     if (consolePatched || typeof window === "undefined") return;
     consolePatched = true;
@@ -201,7 +198,6 @@ async function initFaceLandmarker() {
     silenceMediaPipeInfo();
     loadingLandmarker = true;
     try {
-        // import dinamis: library baru diunduh saat efek wajah dipakai
         const mp = await import("@mediapipe/tasks-vision");
         const vision = await mp.FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_PATH);
         landmarker = await mp.FaceLandmarker.createFromOptions(vision, {
@@ -251,7 +247,6 @@ function updateFaceCache(video: HTMLVideoElement) {
     }
 }
 
-// ---------- efek Hearts (kumpulan hati di atas kepala, ala Photo Booth) ----------
 
 const HEART_PINKS = ["#ff2e7e", "#ff4d8d", "#ff6fa5"];
 
@@ -263,7 +258,6 @@ type HeartStyle = {
     rotation?: number;
 };
 
-// hati flat tanpa glow, titik tengahnya di tengah bentuk hati
 function drawHeart(
     ctx: CanvasRenderingContext2D,
     cx: number,
@@ -301,9 +295,6 @@ function drawHeart(
     ctx.restore();
 }
 
-// posisi tiap hati, semuanya relatif terhadap lebar wajah:
-// u = geser sepanjang lebar wajah, up = tinggi di atas dahi,
-// size = ukuran hati, period = lama satu siklus (detik), phase = awal siklus (0-1)
 const HEART_CLUSTER = [
     { u: -0.62, up: 0.02, size: 0.1, tilt: -0.3, period: 3.2, phase: 0.0 },
     { u: -0.45, up: 0.14, size: 0.05, tilt: 0.2, period: 2.8, phase: 0.35 },
@@ -328,8 +319,8 @@ const headHearts: Effect = {
     id: "head-hearts",
     name: "Hearts",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -353,7 +344,6 @@ const headHearts: Effect = {
             const ny = -ux;
 
             HEART_CLUSTER.forEach((s, i) => {
-                // satu siklus: membal muncul -> melayang naik pelan -> memudar -> muncul lagi
                 const p = (sec / s.period + s.phase + f * 0.13) % 1;
                 const grow = p < 0.15 ? easeOutBack(p / 0.15) : 1;
                 const alpha = p > 0.75 ? 1 - (p - 0.75) / 0.25 : 1;
@@ -376,6 +366,7 @@ const headHearts: Effect = {
     },
 };
 
+
 // ---------- efek Bunny (telinga lemas yang ikut goyang) ----------
 
 type Spring = { x: number; v: number };
@@ -385,11 +376,10 @@ type BunnyState = {
     y: number;
     fw: number;
     ang: number;
-    sway: [Spring, Spring]; // ayunan pangkal telinga
-    tip: [Spring, Spring]; // ujung telinga, lebih lambat jadi terasa melengkung
+    sway: [Spring, Spring];
+    tip: [Spring, Spring];
 };
 
-// satu state per wajah, supaya pegasnya terus berjalan antar frame
 const bunnyStates: BunnyState[] = [];
 
 const stepSpring = (s: Spring, target: number, k: number, c: number, dt: number) => {
@@ -398,7 +388,6 @@ const stepSpring = (s: Spring, target: number, k: number, c: number, dt: number)
     s.x += s.v * dt;
 };
 
-// bentuk telinga: pangkal lebar, ujung membulat, ujungnya bisa dibengkokkan lewat tipX
 function earPath(ctx: CanvasRenderingContext2D, W: number, L: number, tipX: number) {
     ctx.beginPath();
     ctx.moveTo(-W / 2, 0);
@@ -459,8 +448,8 @@ const bunnyEars: Effect = {
     id: "bunny",
     name: "Bunny",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -479,7 +468,6 @@ const bunnyEars: Effect = {
 
             const angle = Math.atan2(dy, dx);
 
-            // ---- wajah: pipi, hidung hati, kumis ----
             for (const [idx, dir] of [
                 [205, -1],
                 [425, 1],
@@ -516,12 +504,10 @@ const bunnyEars: Effect = {
                 });
             }
 
-            // ---- telinga: ikut goyang pakai pegas ----
             const tx = top.x * w;
             const ty = top.y * h;
 
             let st = bunnyStates[f];
-            // kalau wajah baru muncul lagi setelah hilang, mulai dari awal
             if (!st || t - st.t > 300) {
                 st = bunnyStates[f] = {
                     t,
@@ -543,7 +529,6 @@ const bunnyEars: Effect = {
             const dt = Math.min(0.05, Math.max(0.001, (t - st.t) / 1000));
             st.t = t;
 
-            // haluskan posisi kepala (deteksi cuma ~20x/detik), sekalian bikin telinga agak tertinggal
             const a = 1 - Math.exp(-dt * 14);
             const px = st.x;
             st.x += (tx - st.x) * a;
@@ -551,12 +536,10 @@ const bunnyEars: Effect = {
             st.fw += (faceW - st.fw) * a;
             st.ang += (angle - st.ang) * a;
 
-            // kepala gerak ke kanan -> telinga terseret ke kiri (dan sebaliknya)
             const vx = (st.x - px) / dt / st.fw;
             const push = Math.max(-0.7, Math.min(0.7, -vx * 0.35));
 
             for (let i = 0; i < 2; i++) {
-                // kekakuan tiap telinga sedikit beda biar gerakannya tidak kembar
                 stepSpring(st.sway[i], push, 110 - i * 20, 8 + i * 1.5, dt);
                 stepSpring(st.tip[i], push, 55 + i * 8, 4.5, dt);
             }
@@ -571,7 +554,6 @@ const bunnyEars: Effect = {
 
             ([-1, 1] as const).forEach((side, i) => {
                 const idle = Math.sin(sec * 1.6 + i * 1.7 + f) * 0.05;
-                // sesekali satu telinga berkedut
                 const twitch =
                     Math.pow(Math.max(0, Math.sin(sec * 0.8 + i * 2.4 + f)), 14) * 0.3 * side;
 
@@ -592,6 +574,7 @@ const bunnyEars: Effect = {
         });
     },
 };
+
 
 // ---------- efek Comic Book (CMYK Halftone) ----------
 
@@ -944,8 +927,8 @@ const flowerCrown: Effect = {
     id: "flower-crown",
     name: "Flower Crown",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -1067,8 +1050,8 @@ const coquetteBow: Effect = {
     id: "coquette-bow",
     name: "Coquette Bow",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -1114,8 +1097,8 @@ const sparkleEyes: Effect = {
     id: "sparkle-eyes",
     name: "Sparkle Eyes",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -1673,8 +1656,8 @@ const faceGems: Effect = {
     id: "face-gems",
     name: "Face Gems",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -1803,9 +1786,8 @@ const faceMeshNeon: Effect = {
     id: "face-mesh",
     name: "Face Mesh Neon",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
-        // latar gelap dengan sedikit napas warna ungu/cyber
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         ctx.fillStyle = "rgba(8, 0, 26, 0.65)";
         ctx.fillRect(0, 0, w, h);
 
@@ -2072,8 +2054,8 @@ const kittyCat: Effect = {
     id: "cat-ears",
     name: "Kitty",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -2295,8 +2277,8 @@ const blushFreckles: Effect = {
     id: "freckles-blush",
     name: "Blush & Freckles",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -2513,8 +2495,8 @@ const facePaint: Effect = {
     id: "face-paint",
     name: "Face Paint",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -2592,7 +2574,6 @@ const facePaint: Effect = {
                 });
             }
 
-            // ---- hidung badut yang "boop" ----
             const nose = lm[1];
             if (nose) {
                 const boop = 1 + Math.sin(sec * 4) * 0.08;
@@ -2609,7 +2590,6 @@ const facePaint: Effect = {
 
             ctx.restore();
 
-            // ---- glitter berkelip di sekitar pipi dan hidung ----
             if (nose) {
                 for (let i = 0; i < 12; i++) {
                     const u = (rand(i + 1) - 0.5) * 0.8;
@@ -2630,17 +2610,13 @@ const facePaint: Effect = {
     },
 };
 
-// ---------- helper bersama: alis, kedip, teks HUD ----------
-
 const TAU = Math.PI * 2;
 const HUD_FONT = 'ui-monospace, "Courier New", monospace';
 const HUD_CYAN = "#22d3ee";
 
-// kalau terasa kurang/terlalu sensitif, geser dua angka ini
-const BROW_MIN = 0.075; // jarak alis-kelopak / lebar wajah saat netral
-const BROW_MAX = 0.115; // saat alis naik tinggi
+const BROW_MIN = 0.075;
+const BROW_MAX = 0.115;
 
-// 0..1: seberapa tinggi alis terangkat
 function browRaiseAmount(lm: FacePoint[], faceW: number, w: number, h: number) {
     let sum = 0;
     let n = 0;
@@ -2657,7 +2633,6 @@ function browRaiseAmount(lm: FacePoint[], faceW: number, w: number, h: number) {
     return n ? clamp01((sum / n - BROW_MIN) / (BROW_MAX - BROW_MIN)) : 0;
 }
 
-// 0..1: 1 = mata terbuka, 0 = terpejam
 function eyeOpenAmount(
     lm: FacePoint[],
     upper: number,
@@ -2673,7 +2648,6 @@ function eyeOpenAmount(
     return clamp01((d - 0.012) / 0.03);
 }
 
-// garis neon: stroke lebar transparan + stroke tipis (tanpa shadowBlur)
 function neonStroke(ctx: CanvasRenderingContext2D, lw: number) {
     const a = ctx.globalAlpha;
     ctx.globalAlpha = a * 0.22;
@@ -2685,8 +2659,6 @@ function neonStroke(ctx: CanvasRenderingContext2D, lw: number) {
     ctx.globalAlpha = a;
 }
 
-// teks yang tetap terbaca walaupun canvas di-mirror.
-// align dalam arti "kiri/kanan layar" (bukan kiri/kanan koordinat)
 function drawHudText(
     ctx: CanvasRenderingContext2D,
     text: string,
@@ -2713,7 +2685,6 @@ function drawHudText(
     ctx.restore();
 }
 
-// chip teks: ext = 1 melebar ke kanan layar, -1 ke kiri layar, 0 di tengah
 function drawHudChip(
     ctx: CanvasRenderingContext2D,
     text: string,
@@ -2751,6 +2722,7 @@ function drawHudChip(
     ctx.restore();
 }
 
+
 // ---------- efek Battle Damage (buka mulut = kena pukul) ----------
 
 type DamageState = {
@@ -2764,7 +2736,6 @@ type DamageState = {
 
 const damageStates: DamageState[] = [];
 
-// balon komik bergerigi
 function drawBurst(
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -2808,7 +2779,6 @@ function drawBurst(
     ctx.restore();
 }
 
-// plester: panjang len, lebar wid, titik (0,0) = tengah
 function drawPlaster(
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -2853,8 +2823,8 @@ const battleDamage: Effect = {
     id: "scar-damage",
     name: "Battle Damage",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
         updateFaceCache(video);
         if (!cachedFaces.length) return;
 
@@ -2880,7 +2850,6 @@ const battleDamage: Effect = {
             }
             st.t = t;
 
-            // buka mulut lebar = kena pukul (histeresis supaya tidak spam)
             const open = mouthOpenAmount(lm, fw, w, h);
             if (!st.open && open > 0.5) {
                 st.open = true;
@@ -2890,7 +2859,6 @@ const battleDamage: Effect = {
             } else if (st.open && open < 0.25) {
                 st.open = false;
             }
-            // sembuh pelan-pelan: 1 hati kembali tiap 6 detik
             if (st.hits > 0 && t - st.lastHit > 6000) {
                 st.hits--;
                 st.lastHit = t;
@@ -2904,7 +2872,6 @@ const battleDamage: Effect = {
             const pop = (start: number, dur: number) =>
                 Math.max(0, easeOutBack(clamp01((age - start) / dur)));
 
-            // ---- mata lebam (memar ungu-kuning, berdenyut) ----
             const e1 = lm[263];
             const e2 = lm[362];
             if (e1 && e2) {
@@ -2930,7 +2897,6 @@ const battleDamage: Effect = {
                 }
             }
 
-            // ---- bekas cakaran di pipi (tergores ulang tiap kena pukul) ----
             const cheek = lm[205];
             if (cheek && st.hits >= 1) {
                 const reveal = clamp01((t - st.hitAt) / 250);
@@ -2954,7 +2920,6 @@ const battleDamage: Effect = {
                 ctx.restore();
             }
 
-            // ---- bekas luka berjahit di alis ("ditulis" pelan) ----
             const brow = lm[105];
             if (brow) {
                 const reveal = clamp01((age - 0.1) / 0.6);
@@ -2978,7 +2943,6 @@ const battleDamage: Effect = {
                 ctx.stroke();
                 ctx.setLineDash([]);
 
-                // jahitan
                 ctx.strokeStyle = "#3a1020";
                 ctx.lineWidth = Math.max(1, fw * 0.006);
                 const dx = (ex - sx) / L;
@@ -2996,7 +2960,6 @@ const battleDamage: Effect = {
                 ctx.restore();
             }
 
-            // ---- plester X di hidung (nyentak waktu kena pukul) ----
             const nb = lm[6];
             const nt = lm[1];
             if (nb && nt) {
@@ -3008,7 +2971,6 @@ const battleDamage: Effect = {
                 }
             }
 
-            // ---- plester di dahi (setelah 2 pukulan) ----
             const gl = lm[9];
             if (gl && st.hits >= 2) {
                 const [px, py] = place(fr, gl.x * w, gl.y * h, 0.12, 0.13);
@@ -3023,7 +2985,6 @@ const battleDamage: Effect = {
                 );
             }
 
-            // ---- bintang pusing berputar di kepala ----
             if (hitting) {
                 const fade = hk > 0.7 ? 1 - (hk - 0.7) / 0.3 : 1;
                 ctx.save();
@@ -3035,7 +2996,6 @@ const battleDamage: Effect = {
                 }
                 ctx.restore();
 
-                // ---- balon OUCH! / K.O.! ----
                 const [bx, by] = place(fr, fr.tx, fr.ty, -0.66, 0.3);
                 drawBurst(
                     ctx,
@@ -3050,7 +3010,6 @@ const battleDamage: Effect = {
                 );
             }
 
-            // ---- 3 hati HP di atas kepala ----
             for (let i = 0; i < 3; i++) {
                 const lost = i >= 3 - st.hits;
                 const justLost = hitting && i === 3 - st.hits;
@@ -3077,6 +3036,7 @@ const battleDamage: Effect = {
     },
 };
 
+
 // ---------- efek Iron HUD ----------
 
 type HudState = { t: number; born: number };
@@ -3094,7 +3054,6 @@ const HUD_QUIPS = [
     "DRIP: DETECTED",
 ];
 
-// kotak detak jantung: ext = 1 melebar ke kanan layar, -1 ke kiri layar
 function drawHudEcg(
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -3127,7 +3086,6 @@ function drawHudEcg(
     ctx.textBaseline = "middle";
     ctx.fillText(`♥ ${bpm} BPM`, x0 + size * 0.6, -bh / 2 + size * 0.85);
 
-    // garis EKG yang berjalan
     const N = 44;
     ctx.beginPath();
     for (let i = 0; i <= N; i++) {
@@ -3162,7 +3120,6 @@ const ironHud: Effect = {
 
         const sec = t / 1000;
         const mirrored = ctx.getTransform().a < 0;
-        // arah "keluar" untuk sisi u positif, dalam koordinat lokal teks
         const ext = mirrored ? -1 : 1;
 
         cachedFaces.forEach((lm, f) => {
@@ -3177,7 +3134,7 @@ const ironHud: Effect = {
 
             const age = (t - st.born) / 1000;
             const locked = age >= 0.7;
-            const k = 1 + (1 - easeOutBack(clamp01(age / 0.7))) * 0.8; // mengecil lalu mengunci
+            const k = 1 + (1 - easeOutBack(clamp01(age / 0.7))) * 0.8;
 
             const smile = (hudSmile[f] =
                 (hudSmile[f] ?? 0) + (smileAmount(lm, fw, w, h) - (hudSmile[f] ?? 0)) * 0.2);
@@ -3189,13 +3146,11 @@ const ironHud: Effect = {
             const at = (u: number, up: number) => place(fr, cx, cy, u, up);
             const thin = Math.max(1, fw * 0.004);
 
-            // ---------- garis & glow (mode lighter) ----------
             ctx.save();
             ctx.globalCompositeOperation = "lighter";
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
 
-            // kotak target: merah waktu mencari, cyan setelah mengunci
             ctx.strokeStyle = locked ? HUD_CYAN : "#ff6b6b";
             ctx.beginPath();
             for (const sx of [-1, 1]) {
@@ -3212,7 +3167,6 @@ const ironHud: Effect = {
             }
             neonStroke(ctx, thin);
 
-            // dua cincin putus-putus yang berputar berlawanan
             ctx.strokeStyle = HUD_CYAN;
             ctx.setLineDash([fw * 0.05, fw * 0.035]);
             ctx.lineDashOffset = -sec * fw * 0.25;
@@ -3227,7 +3181,6 @@ const ironHud: Effect = {
             neonStroke(ctx, thin);
             ctx.setLineDash([]);
 
-            // dua busur pink yang mengejar
             ctx.strokeStyle = "#ff4d8d";
             const a0 = sec * 1.4;
             const R = fw * 0.8;
@@ -3237,7 +3190,6 @@ const ironHud: Effect = {
             ctx.arc(cx, cy, R, a0 + Math.PI, a0 + Math.PI + 1);
             neonStroke(ctx, thin * 1.3);
 
-            // garis scan naik-turun
             const p = (sec * 0.45 + f * 0.3) % 1;
             const su = 0.8 - p * 1.6;
             const [s1x, s1y] = at(-0.62, su);
@@ -3248,7 +3200,6 @@ const ironHud: Effect = {
             ctx.lineTo(s2x, s2y);
             neonStroke(ctx, thin);
 
-            // cincin di kedua mata (membesar saat alis naik)
             for (const [a, b] of [
                 [33, 133],
                 [263, 362],
@@ -3284,10 +3235,8 @@ const ironHud: Effect = {
             }
             ctx.restore();
 
-            // ---------- panel data (mode normal) ----------
             const size = Math.max(9, fw * 0.055);
 
-            // kanan: SMILE.EXE + dua kutipan lucu yang berganti
             for (let i = 0; i < 3; i++) {
                 const up = 0.42 - i * 0.3;
                 const [lx, ly] = at(0.64, up);
@@ -3312,7 +3261,6 @@ const ironHud: Effect = {
                 drawHudChip(ctx, text, ax, ay, size, i === 0 ? "#7df3ff" : HUD_CYAN, mirrored, ext, alpha);
             }
 
-            // kiri: detak jantung (makin senyum makin kencang)
             const bpm = Math.round(72 + smile * 50 + open * 30);
             {
                 const [lx, ly] = at(-0.64, 0.12);
@@ -3381,8 +3329,8 @@ const terminatorEye: Effect = {
     id: "terminator-eye",
     name: "Terminator Eye",
     preload: initFaceLandmarker,
-    draw(ctx, video, w, h, t) {
-        ctx.drawImage(video, 0, 0, w, h);
+    draw(ctx, video, w, h, t, overlayOnly) {
+        if (!overlayOnly) ctx.drawImage(video, 0, 0, w, h);
 
         const sec = t / 1000;
         const mirrored = ctx.getTransform().a < 0;
@@ -3568,7 +3516,6 @@ const terminatorEye: Effect = {
     },
 };
 
-// kiri: efek yang butuh deteksi wajah (MediaPipe)
 export const faceEffects: Effect[] = [
     filterEffect("normal", "Normal", "none"),
     headHearts,
@@ -3586,7 +3533,6 @@ export const faceEffects: Effect[] = [
     facePaint,
 ];
 
-// kanan: efek yang menimpa seluruh layar
 export const screenEffects: Effect[] = [
     filterEffect("normal", "Normal", "none"),
     spinBlur,
@@ -3620,6 +3566,18 @@ export const screenEffects: Effect[] = [
     pixelEffect("glitch", "Glitch", glitch),
 ];
 
-// gabungan, buat lookup & efek awal (effects[0] = Normal)
 export const effects: Effect[] = [...screenEffects, ...faceEffects];
 
+export function combineEffects(screen: Effect, face: Effect | null): Effect {
+    if (!face) return screen;
+    const f = face;
+
+    return {
+        id: `${screen.id}+${f.id}`,
+        name: `${f.name} + ${screen.name}`,
+        draw(ctx, video, w, h, t) {
+            screen.draw(ctx, video, w, h, t);
+            f.draw(ctx, video, w, h, t, true);
+        },
+    };
+}
